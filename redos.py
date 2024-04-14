@@ -85,6 +85,7 @@ class DataWindow(QWidget):
 
 
 ansible_hosts = []
+app_list = []
 selected_applications = []
 users_for_changing = []
 text_edits = {}
@@ -196,6 +197,26 @@ class MainWindow(QMainWindow):
         for username in list(result):
             users_for_changing.append(username)
 
+        print("Получаем все доступные приложения...")
+        apps_command = """ansible redos -a 'ls /usr/share/applications'"""
+        apps_process = subprocess.Popen(apps_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        apps_stdout, apps_error = apps_process.communicate()
+
+        if apps_process.returncode != 0:
+            QMessageBox.critical(self, 'Ошибка получения данных',
+                                 f'Не удалось получить информацию о пользователях. Ошибка: {apps_error.decode("utf-8")}',
+                                 QMessageBox.Ok)
+
+        sub_strings_app = apps_stdout.decode("utf-8").split("\n")
+
+        for substring in sub_strings_app:
+            if ".desktop" in substring:
+                s = substring[:-8]
+                if s not in app_list:
+                    app_list.append(s)
+
+        print("Приложения:", app_list)
+
         self.params = ParameterSelectionWindow()
         self.params.show()
         self.close()
@@ -227,7 +248,6 @@ class ParameterSelectionWindow(QWidget):
         self.scroll_logs_area.setWidgetResizable(True)
         self.scroll_logs_area.setGeometry(560, 50, 675, 400)
 
-
         self.manage_host = QLabel('Управление узлами:', self)
         self.manage_host.setGeometry(20, 5, 200, 30)
         self.manage_host.setFont(QFont('Arial', 12, QFont.Bold))
@@ -235,7 +255,6 @@ class ParameterSelectionWindow(QWidget):
         self.conf_access = QLabel('Настройки\nуправления доступом:', self)
         self.conf_access.setGeometry(300, 5, 200, 30)
         self.conf_access.setFont(QFont('Arial', 12, QFont.Bold))
-
 
         self.conf_access = QLabel('Логи:', self)
         self.conf_access.setGeometry(560, 5, 200, 30)
@@ -415,20 +434,21 @@ class ParameterSelectionWindow(QWidget):
         for cmd in commands:
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, error = process.communicate()
-            #print(stdout, error)
+            # print(stdout, error)
             if stdout:
                 self.update_label(stdout.decode("utf-8"))
             if error:
                 self.update_label("Error: " + error.decode("utf-8"))
 
         QMessageBox.information(self, 'Правило применено!', f'Ваше правило было распространено на узлы!',
-                                 QMessageBox.Ok)
+                                QMessageBox.Ok)
 
     def update_label(self, text):
         # Обновляем текст QLabel
         current_text = self.text_edit.text()
         new_text = current_text + "\n" + text
         self.text_edit.setText(new_text)
+
     def activate_all_hosts(self, checked):
         for checkbox in self.checkboxes:
             checkbox.setEnabled(not checked)
@@ -488,57 +508,11 @@ class ApplicationSelectionWindow(QWidget):
         self.checkbox_container = QWidget()
         self.grid_layout = QGridLayout(self.checkbox_container)  # Используем сеточный макет
 
-        app_list = ['libreoffice-draw', 'org.gnome.Zenity', 'org.gnome.evolution-data-server.OAuth2-handler',
-                    'gnome-notifications-panel', 'blueman-adapters', 'mate-layout-chooser', 'xdg-desktop-portal-gnome',
-                    'plank', 'caja', 'mate-mimea', 'gnome-keyboard-panel', 'org.remmina.Remmina-file',
-                    'system-config-printer', 'mate-power-preferences', 'mate-session-properties', 'goldendict',
-                    'gnome-default-apps-panel', 'mate-network-scheme', 'yelp', 'ibus-setup-libpinyin',
-                    'gnome-multitasking-panel', 'gnome-datetime-panel', 'mate-at-properties', 'gnome-background-panel',
-                    'gnome-sharing-panel', 'gnome-user-accounts-panel', 'join-to-domain',
-                    'org.mageia.dnfdragora-updater', 'org.gnome.DiskUtility', 'libreoffice-startcenter',
-                    'ibus-setup-m17n', 'gnome-region-panel', 'gnome-online-accounts-panel',
-                    'gnome-firmware-security-panel', 'org.gnome.Evolution-alarm-notify', 'geoclue-demo-agent',
-                    'hp-uiscan', 'mate-user-guide', 'openstreetmap-geo-handler', 'gnome-mimea', 'mate-settings-mouse',
-                    'gnome-usage-panel', 'hp-setup', 'thunderbird', 'mate-display-properties', 'gnome-printers-panel',
-                    'mate-power-statistics', 'kde-mimea', 'share-directory', 'mate-system-monitor', 'gnome-wacom-panel',
-                    'mate-search-tool', 'mate-notification-properties', 'gnome-wwan-panel', 'xfreerdp-gui',
-                    'gnome-mouse-panel', 'gkbd-keyboard-display', 'system-config-language', 'gnome-power-panel',
-                    'mate-time-admin', 'guvcview', 'kiosk-ban-info', 'mate-calc', 'caja-folder-handler', 'cact', 'ccsm',
-                    'libreoffice-calc', 'simple-scan', 'blueman-manager', 'gnome-bluetooth-panel', 'caja-browser',
-                    'org.freedesktop.IBus.Panel.Emojier', 'redhat-usermount', 'gnome-screen-panel', 'gucharmap',
-                    'caja-autorun-software', 'org.gnome.Gnote', 'gnome-camera-panel',
-                    'mate-default-applications-properties', 'qwant-maps-geo-handler', 'gnome-applications-panel',
-                    'loginfo', 'engrampa', 'gnome-thunderbolt-panel', 'gnome-microphone-panel', 'mate-system-log',
-                    'org.freedesktop.IBus.Panel.Extension.Gtk3', 'xdg-desktop-portal-gtk', 'mozo', 'smbpass',
-                    'gnome-disk-image-writer', 'org.flameshot.Flameshot', 'libreoffice-writer',
-                    'mate-appearance-properties', 'libreoffice-base', 'mate-screensaver-preferences', 'redhat-userinfo',
-                    'caja-home', 'matecc', 'gnome-location-panel', 'redoswelcome-menu', 'gnome-diagnostics-panel',
-                    'redhat-userpasswd', 'mimea', 'caja-file-management-properties', 'chromium-browser',
-                    'caja-computer', 'mate-about-me', 'pluma', 'yad-settings', 'gnome-network-panel', 'vlc',
-                    'mate-theme-installer', 'compiz', 'wheelmap-geo-handler', 'mate-about', 'mimein',
-                    'org.gnome.seahorse.Application', 'libreoffice-impress', 'gnome-display-panel', 'metacity',
-                    'ibus-setup-libzhuyin', 'mate-user-admin', 'org.gnome.Shell.Extensions', 'gnome-color-panel',
-                    'firewall-config', 'ibus-setup-anthy', 'timeshift-gtk', 'org.remmina.Remmina',
-                    'mate-seahorse-pgp-signature', 'scre', 'org.kde.kwalletd5', 'hardinfo', 'mate-panel',
-                    'mate-font-viewer', 'org.gnome.Shell', 'mate-window-properties', 'gnome-wifi-panel',
-                    'ibus-setup-libbopomofo', 'mate-volume-control', 'gcr-viewer', 'ktelnetservice5',
-                    'gnome-search-panel', 'nm-applet', 'org.gnome.Shell.PortalHelper', 'xfburn', 'atril',
+        '''self.search_bar = QLineEdit(self)
+        self.search_bar.setPlaceholderText("Поиск...")
+        self.search_bar.textChanged.connect(self.filter_checkboxes)  # Соединяем сигнал изменения текста с методом поиска'''
 
-                    'gnome-sound-panel', 'org.gnome.Settings', 'mate-terminal', 'connectfolder',
-                    'gnome-universal-access-panel', 'eom', 'gnome-removable-media-panel', 'google-maps-geo-handler',
-                    'gcr-prompter', 'audacious', 'hplip', 'usb-rules', 'gparted', 'kcm_trash',
-                    'mate-seahorse-pgp-encrypted', 'mate-seahorse-pgp-keys', 'gnome-info-overview-panel',
-                    'remmina-gnome', 'mate-keybinding', 'org.mageia.dnfdragora', 'marco', 'mate-disk-usage-analyzer',
-                    'mate-color-select', 'mate-keyboard', 'bluetooth-sendto', 'gnome-disk-image-mounter',
-                    'ibus-setup-hangul', 'org.mageia.dnfdragora-localinstall', 'org.freedesktop.IBus.Setup',
-                    'mate-network-properties', 'libreoffice-math']
-
-       # self.search_bar = QLineEdit(self)
-        #self.search_bar.setPlaceholderText("Поиск...")
-        #self.search_bar.textChanged.connect(self.filter_checkboxes)  # Соединяем сигнал изменения текста с методом поиска
-
-
-        #self.checkboxes = {}  # Словарь для хранения чекбоксов
+        self.checkboxes = {}  # Словарь для хранения чекбоксов
 
         for index, app in enumerate(app_list):
             # Создаем чекбокс с уникальным ID
@@ -552,7 +526,7 @@ class ApplicationSelectionWindow(QWidget):
             textedit = QLineEdit()
             textedit.setFont(QFont('Arial', 14))
             textedit.setPlaceholderText("Введите опции для firejail")
-            textedit.setSizeIncrement(120,15)
+            textedit.setSizeIncrement(120, 15)
             text_edits[app] = textedit
             self.grid_layout.addWidget(textedit, index, 1)
 
@@ -564,9 +538,7 @@ class ApplicationSelectionWindow(QWidget):
         self.close_btn.setGeometry(650, 815, 120, 50)
         self.close_btn.clicked.connect(self.printCheckedCheckboxes)
 
-
-    ''' КИЛЕР ФИЧА
-    def filter_checkboxes(self):
+    '''def filter_checkboxes(self):
         search_text = self.search_bar.text().lower()  # Получаем текст для поиска и приводим к нижнему регистру
         for app, checkbox in self.checkboxes.items():
             # Установка видимости в зависимости от поискового запроса
@@ -575,6 +547,7 @@ class ApplicationSelectionWindow(QWidget):
         # Обновляем макет после изменения видимости чекбоксов
         self.checkbox_container.adjustSize()
         self.scroll_area.adjustSize()'''
+
     def printCheckedCheckboxes(self):
         """Выводит в консоль все выбранные чекбоксы."""
         checked_apps = [cb.text() for cb in self.checkboxes.values() if cb.isChecked()]
